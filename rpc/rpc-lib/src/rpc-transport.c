@@ -486,11 +486,7 @@ rpc_transport_ref (rpc_transport_t *this)
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
 
-	pthread_mutex_lock (&this->lock);
-	{
-		this->refcount ++;
-	}
-	pthread_mutex_unlock (&this->lock);
+	__sync_fetch_and_add (&this->refcount, 1);
 
 	return_this = this;
 fail:
@@ -506,11 +502,7 @@ rpc_transport_unref (rpc_transport_t *this)
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
 
-	pthread_mutex_lock (&this->lock);
-	{
-                refcount = --this->refcount;
-	}
-	pthread_mutex_unlock (&this->lock);
+	refcount = __sync_fetch_and_sub (&this->refcount, 1);
 
 	if (refcount == 0) {
                 if (this->mydata)
