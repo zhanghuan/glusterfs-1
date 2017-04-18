@@ -3565,7 +3565,7 @@ stripe_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	mframe = local->orig_frame;
 	mlocal = mframe->local;
 
-        LOCK(&frame->lock);
+        LOCK(&mframe->lock);
         {
                 callcnt = ++mlocal->call_count;
 
@@ -3588,7 +3588,7 @@ stripe_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				mlocal->postbuf_size = postbuf->ia_size;
                 }
         }
-        UNLOCK (&frame->lock);
+        UNLOCK (&mframe->lock);
 
         if ((callcnt == mlocal->wind_count) && mlocal->unwind) {
 		mlocal->pre_buf.ia_size = mlocal->prebuf_size;
@@ -3798,7 +3798,7 @@ stripe_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 	mframe = local->orig_frame;
 	mlocal = mframe->local;
 
-        LOCK(&frame->lock);
+        LOCK(&mframe->lock);
         {
                 callcnt = ++mlocal->call_count;
 
@@ -3824,7 +3824,7 @@ stripe_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 			mlocal->op_errno = op_errno;
 		}
         }
-        UNLOCK (&frame->lock);
+        UNLOCK (&mframe->lock);
 
         if ((callcnt == mlocal->wind_count) && mlocal->unwind) {
 		mlocal->pre_buf.ia_size = mlocal->prebuf_size;
@@ -3965,7 +3965,7 @@ stripe_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 	mframe = local->orig_frame;
 	mlocal = mframe->local;
 
-        LOCK(&frame->lock);
+        LOCK(&mframe->lock);
         {
                 callcnt = ++mlocal->call_count;
 
@@ -3991,7 +3991,7 @@ stripe_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 			mlocal->op_errno = op_errno;
 		}
         }
-        UNLOCK (&frame->lock);
+        UNLOCK (&mframe->lock);
 
         if ((callcnt == mlocal->wind_count) && mlocal->unwind) {
 		mlocal->pre_buf.ia_size = mlocal->prebuf_size;
@@ -4133,7 +4133,7 @@ stripe_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         mframe = local->orig_frame;
         mlocal = mframe->local;
 
-        LOCK(&frame->lock);
+        LOCK(&mframe->lock);
         {
                 callcnt = ++mlocal->call_count;
 
@@ -4159,7 +4159,7 @@ stripe_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         mlocal->op_errno = op_errno;
                 }
         }
-        UNLOCK (&frame->lock);
+        UNLOCK (&mframe->lock);
 
         if ((callcnt == mlocal->wind_count) && mlocal->unwind) {
                 mlocal->pre_buf.ia_size = mlocal->prebuf_size;
