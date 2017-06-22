@@ -118,6 +118,8 @@ __ioc_inode_flush (ioc_inode_t *ioc_inode)
                         destroy_size += ret;
         }
 
+        GF_ATOMIC_SUB(ioc_inode->table->cache_used, destroy_size);
+
         return destroy_size;
 }
 
@@ -131,14 +133,6 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
                 destroy_size = __ioc_inode_flush (ioc_inode);
         }
         ioc_inode_unlock (ioc_inode);
-
-        if (destroy_size) {
-                ioc_table_lock (ioc_inode->table);
-                {
-                        ioc_inode->table->cache_used -= destroy_size;
-                }
-                ioc_table_unlock (ioc_inode->table);
-        }
 
         return;
 }
@@ -360,7 +354,6 @@ ioc_cache_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         ioc_local_t *local        = NULL;
         ioc_inode_t *ioc_inode    = NULL;
-        size_t       destroy_size = 0;
         struct iatt *local_stbuf  = NULL;
 
         local = frame->local;
@@ -378,7 +371,7 @@ ioc_cache_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  */
                 ioc_inode_lock (ioc_inode);
                 {
-                        destroy_size = __ioc_inode_flush (ioc_inode);
+                        __ioc_inode_flush (ioc_inode);
                         if (op_ret >= 0) {
                                 ioc_inode->cache.mtime = stbuf->ia_mtime;
                                 ioc_inode->cache.mtime_nsec
@@ -387,14 +380,6 @@ ioc_cache_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 ioc_inode_unlock (ioc_inode);
                 local_stbuf = NULL;
-        }
-
-        if (destroy_size) {
-                ioc_table_lock (ioc_inode->table);
-                {
-                        ioc_inode->table->cache_used -= destroy_size;
-                }
-                ioc_table_unlock (ioc_inode->table);
         }
 
         if (op_ret < 0)
@@ -908,15 +893,7 @@ ioc_release (xlator_t *this, fd_t *fd)
 int32_t
 ioc_need_prune (ioc_table_t *table)
 {
-        int64_t cache_difference = 0;
-
-        ioc_table_lock (table);
-        {
-                cache_difference = table->cache_used - table->cache_size;
-        }
-        ioc_table_unlock (table);
-
-        if (cache_difference > 0)
+        if (GF_ATOMIC_GET(table->cache_used) > table->cache_size)
                 return 1;
         else
                 return 0;
@@ -1771,6 +1748,7 @@ init (xlator_t *this)
 
         table->xl = this;
         table->page_size = this->ctx->page_size;
+        GF_ATOMIC_INIT(table->cache_used, 0);
 
         GF_OPTION_INIT ("cache-size", table->cache_size, size_uint64, out);
 
@@ -2062,7 +2040,7 @@ ioc_priv_dump (xlator_t *this)
         {
                 gf_proc_dump_write ("page_size", "%ld", priv->page_size);
                 gf_proc_dump_write ("cache_size", "%ld", priv->cache_size);
-                gf_proc_dump_write ("cache_used", "%ld", priv->cache_used);
+                gf_proc_dump_write ("cache_used", "%ld", GF_ATOMIC_GET(priv->cache_used));
                 gf_proc_dump_write ("inode_count", "%u", priv->inode_count);
                 gf_proc_dump_write ("cache_timeout", "%u", priv->cache_timeout);
                 gf_proc_dump_write ("min-file-size", "%u", priv->min_file_size);

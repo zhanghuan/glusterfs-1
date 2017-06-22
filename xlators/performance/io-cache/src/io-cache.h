@@ -151,7 +151,7 @@ struct ioc_inode {
 struct ioc_table {
         uint64_t         page_size;
         uint64_t         cache_size;
-        uint64_t         cache_used;
+        gf_atomic_t      cache_used;
         uint64_t         min_file_size;
         uint64_t         max_file_size;
         struct list_head inodes; /* list of inodes cached */

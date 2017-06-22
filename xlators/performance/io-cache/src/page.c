@@ -167,12 +167,13 @@ __ioc_inode_prune (ioc_inode_t *curr, uint64_t *size_pruned,
                 ret = __ioc_page_destroy (page);
 
                 if (ret != -1)
-                        table->cache_used -= ret;
+                        GF_ATOMIC_SUB(table->cache_used, ret);
 
                 gf_msg_trace (table->xl->name, 0,
                               "index = %d && "
                               "table->cache_used = %"PRIu64" && table->"
-                              "cache_size = %"PRIu64, index, table->cache_used,
+                              "cache_size = %"PRIu64, index,
+                              GF_ATOMIC_GET(table->cache_used),
                               table->cache_size);
 
                 if ((*size_pruned) >= size_to_prune)
@@ -205,7 +206,7 @@ ioc_prune (ioc_table_t *table)
 
         ioc_table_lock (table);
         {
-                size_to_prune = table->cache_used - table->cache_size;
+                size_to_prune = GF_ATOMIC_GET(table->cache_used) - table->cache_size;
                 /* take out the least recently used inode */
                 for (index=0; index < table->max_pri; index++) {
                         list_for_each_entry_safe (curr, next_ioc_inode,
@@ -416,7 +417,6 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ioc_inode_t *ioc_inode        = NULL;
         ioc_table_t *table            = NULL;
         ioc_page_t  *page             = NULL;
-        int32_t      destroy_size     = 0;
         size_t       page_size        = 0;
         ioc_waitq_t *waitq            = NULL;
         size_t       iobref_page_size = 0;
@@ -444,7 +444,7 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_msg_trace (ioc_inode->table->xl->name, 0,
                                       "cache for inode(%p) is invalid. flushing "
                                       "all pages", ioc_inode);
-                        destroy_size = __ioc_inode_flush (ioc_inode);
+                        __ioc_inode_flush (ioc_inode);
                 }
 
                 if ((op_ret >= 0) && !zero_filled) {
@@ -516,6 +516,7 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 page->op_errno = op_errno;
 
                                 iobref_page_size = iobref_size (page->iobref);
+                                GF_ATOMIC_ADD(table->cache_used, iobref_page_size);
 
                                 if (page->waitq) {
                                         /* wake up all the frames waiting on
@@ -531,22 +532,6 @@ unlock:
         ioc_inode_unlock (ioc_inode);
 
         ioc_waitq_return (waitq);
-
-        if (iobref_page_size) {
-                ioc_table_lock (table);
-                {
-                        table->cache_used += iobref_page_size;
-                }
-                ioc_table_unlock (table);
-        }
-
-        if (destroy_size) {
-                ioc_table_lock (table);
-                {
-                        table->cache_used -= destroy_size;
-                }
-                ioc_table_unlock (table);
-        }
 
         if (ioc_need_prune (ioc_inode->table)) {
                 ioc_prune (ioc_inode->table);
@@ -1016,9 +1001,8 @@ __ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno)
         table = page->inode->table;
         ret = __ioc_page_destroy (page);
 
-        if (ret != -1) {
-                table->cache_used -= ret;
-        }
+        if (ret != -1)
+                GF_ATOMIC_SUB(table->cache_used, ret);
 
 out:
         return waitq;
